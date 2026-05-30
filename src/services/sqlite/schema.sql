@@ -119,6 +119,29 @@ CREATE INDEX IF NOT EXISTS idx_session_summaries_created      ON session_summari
 CREATE INDEX IF NOT EXISTS idx_summaries_merged_into          ON session_summaries(merged_into_project);
 
 -- ─────────────────────────────────────────────────────────────────────
+-- continuity_summaries: three-section (state/arc/next) session summaries
+-- generated at threshold or session-end, stored with draft/approved workflow.
+-- ─────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS continuity_summaries (
+  id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+  content_session_id   TEXT    NOT NULL,
+  project              TEXT    NOT NULL,
+  status               TEXT    NOT NULL DEFAULT 'draft'
+                               CHECK(status IN ('draft', 'approved')),
+  trigger              TEXT    NOT NULL
+                               CHECK(trigger IN ('threshold', 'stop', 'manual')),
+  state_section        TEXT,
+  arc_section          TEXT,
+  next_section         TEXT,
+  transcript_fill      REAL,
+  generated_at_epoch   INTEGER NOT NULL,
+  approved_at_epoch    INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_continuity_summaries_project ON continuity_summaries(project);
+CREATE INDEX IF NOT EXISTS idx_continuity_summaries_session ON continuity_summaries(content_session_id);
+CREATE INDEX IF NOT EXISTS idx_continuity_summaries_status  ON continuity_summaries(status, generated_at_epoch DESC);
+
+-- ─────────────────────────────────────────────────────────────────────
 -- pending_messages: persistent work queue for SDK messages.
 -- UNIQUE(content_session_id, tool_use_id) preserves ingestion pairing without
 -- any legacy worker_pid or stale-reset epoch column.

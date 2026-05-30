@@ -138,7 +138,15 @@ export const sessionInitHandler: EventHandler = {
         const fill = estimateContextFill(transcriptPath, windowSize);
         if (fill >= threshold) {
           const pct = Math.round(fill * 100);
-          additionalContext = `[claude-mem] Context window is ~${pct}% full (threshold: ${Math.round(threshold * 100)}%). Consider drafting a session summary now to preserve continuity across compaction.`;
+          additionalContext = `[claude-mem] Context window is ~${pct}% full (threshold: ${Math.round(threshold * 100)}%). A continuity summary has been queued to preserve context across compaction.`;
+          // Fire generation; worker deduplicates if draft already exists for this session
+          executeWithWorkerFallback<unknown>('/api/continuity-summary/generate', 'POST', {
+            contentSessionId: sessionId,
+            project,
+            trigger: 'threshold',
+            transcriptPath,
+            transcriptFill: fill,
+          }).catch(() => {/* non-blocking */});
         }
       }
     }

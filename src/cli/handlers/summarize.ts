@@ -9,6 +9,7 @@ import { normalizePlatformSource } from '../../shared/platform-source.js';
 import { shouldTrackProject } from '../../shared/should-track-project.js';
 import { resolveRuntimeContext, logServerBetaFallback } from '../../services/hooks/runtime-selector.js';
 import { isServerBetaClientError } from '../../services/hooks/server-beta-client.js';
+import { getProjectContext } from '../../utils/project-name.js';
 
 export const summarizeHandler: EventHandler = {
   async execute(input: NormalizedHookInput): Promise<HookResult> {
@@ -133,6 +134,18 @@ export const summarizeHandler: EventHandler = {
     }
 
     logger.debug('HOOK', 'Summary request queued, exiting hook');
+
+    // Fire continuity summary generation asynchronously — don't block the Stop hook.
+    if (transcriptPath) {
+      const project = getProjectContext(input.cwd ?? process.cwd()).primary;
+      executeWithWorkerFallback<unknown>('/api/continuity-summary/generate', 'POST', {
+        contentSessionId: sessionId,
+        project,
+        trigger: 'stop',
+        transcriptPath,
+      }).catch(() => {/* non-blocking */});
+    }
+
     return { continue: true, suppressOutput: true, exitCode: HOOK_EXIT_CODES.SUCCESS };
   },
 };

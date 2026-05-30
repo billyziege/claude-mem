@@ -45,6 +45,7 @@ export type Component =
   | 'SHUTDOWN'
   | 'SYSTEM'
   | 'TELEGRAM'
+  | 'CONTINUITY'
   | 'TRANSCRIPT'
   | 'WINDSURF'
   | 'WORKER';

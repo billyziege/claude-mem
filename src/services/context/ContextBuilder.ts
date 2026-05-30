@@ -25,6 +25,9 @@ import { shouldShowSummary, renderSummaryFields } from './sections/SummaryRender
 import { renderPreviouslySection, renderFooter } from './sections/FooterRenderer.js';
 import { renderAgentEmptyState } from './formatters/AgentFormatter.js';
 import { renderHumanEmptyState } from './formatters/HumanFormatter.js';
+import { getLatestContinuitySummary } from '../sqlite/continuity-summaries/index.js';
+import { Database } from 'bun:sqlite';
+import { paths } from '../../shared/paths.js';
 
 const VERSION_MARKER_PATH = path.join(
   homedir(),
@@ -59,6 +62,15 @@ function initializeDatabase(): SessionStore | null {
 
 function renderEmptyState(project: string, forHuman: boolean): string {
   return forHuman ? renderHumanEmptyState(project) : renderAgentEmptyState(project);
+}
+
+function renderContinuitySummary(summary: import('../sqlite/continuity-summaries/types.js').ContinuitySummary): string {
+  const marker = summary.status === 'draft' ? '[automated draft — pending review] ' : '';
+  const lines: string[] = [`## ${marker}Continuity Summary`];
+  if (summary.stateSection) lines.push(`\n### STATE\n${summary.stateSection}`);
+  if (summary.arcSection) lines.push(`\n### ARC\n${summary.arcSection}`);
+  if (summary.nextSection) lines.push(`\n### NEXT\n${summary.nextSection}`);
+  return lines.join('\n');
 }
 
 function buildContextOutput(
@@ -127,8 +139,24 @@ export async function generateContext(
       ? querySummariesMulti(db, projects, config)
       : querySummaries(db, project, config);
 
+    // Prepend the latest continuity summary (approved first, then draft with marker)
+    let continuityBlock = '';
+    try {
+      const rawDb = new Database(paths.database(), { readonly: true });
+      try {
+        const continuity = getLatestContinuitySummary(rawDb, project, 'approved')
+          ?? getLatestContinuitySummary(rawDb, project, 'draft');
+        continuityBlock = continuity ? renderContinuitySummary(continuity) : '';
+      } finally {
+        rawDb.close();
+      }
+    } catch {
+      // continuity_summaries table may not exist on older installs — skip gracefully
+    }
+
     if (observations.length === 0 && summaries.length === 0) {
-      return renderEmptyState(project, forHuman);
+      const emptyState = renderEmptyState(project, forHuman);
+      return continuityBlock ? `${continuityBlock}\n\n${emptyState}` : emptyState;
     }
 
     const output = buildContextOutput(
@@ -141,7 +169,7 @@ export async function generateContext(
       forHuman
     );
 
-    return output;
+    return continuityBlock ? `${continuityBlock}\n\n${output}` : output;
   } finally {
     db.close();
   }

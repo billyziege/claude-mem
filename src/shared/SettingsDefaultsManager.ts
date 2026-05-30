@@ -78,6 +78,7 @@ export interface SettingsDefaults {
   CLAUDE_MEM_SERVER_BETA_PROJECT_ID: string;
   SESSION_SUMMARY_CONTEXT_THRESHOLD: string;
   SESSION_SUMMARY_CONTEXT_WINDOW_SIZE: string;
+  SESSION_SUMMARY_AUTO_APPROVE: string;
 }
 
 export class SettingsDefaultsManager {
@@ -156,6 +157,7 @@ export class SettingsDefaultsManager {
     CLAUDE_MEM_SERVER_BETA_PROJECT_ID: '',                  // Default Postgres project_id used by hooks when runtime=server-beta
     SESSION_SUMMARY_CONTEXT_THRESHOLD: '0.65',              // Fraction of context window at which a summary warning is injected (0.0–1.0)
     SESSION_SUMMARY_CONTEXT_WINDOW_SIZE: '200000',          // Fallback context window size in tokens; overridden per-model when detectable
+    SESSION_SUMMARY_AUTO_APPROVE: 'false',                  // When true, continuity summaries are stored as approved without review
   };
 
   static getAllDefaults(): SettingsDefaults {
