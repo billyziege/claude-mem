@@ -20,6 +20,7 @@ package-lock.json
 bun.lock
 private/
 Auto Run Docs/
+collaboration_notes/
 
 src/ui/viewer.html
 
