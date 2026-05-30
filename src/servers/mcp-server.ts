@@ -882,7 +882,52 @@ NEVER fetch full details without filtering first. 10x token savings.`,
       if (typeof name !== 'string' || name.trim() === '') throw new Error('Missing required argument: name');
       return await callWorkerAPIPost(`/api/corpus/${encodeURIComponent(name)}/reprime`, rest);
     }
-  }
+  },
+  {
+    name: 'session_summary_list',
+    description: 'List continuity summaries (STATE/ARC/NEXT) for a project. Use to review pending drafts before approving. Params: project (required), status ("draft", "approved", or "any", default "any").',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Project name to list summaries for' },
+        status: { type: 'string', enum: ['draft', 'approved', 'any'], description: 'Filter by status (default: any)' },
+      },
+      required: ['project'],
+      additionalProperties: false,
+    },
+    handler: async (args: any) => {
+      const project = String(args?.project ?? '');
+      if (!project) throw new Error('Missing required argument: project');
+      const status = String(args?.status ?? 'any');
+      try {
+        const response = await workerHttpRequest(
+          `/api/continuity-summary/latest?project=${encodeURIComponent(project)}&status=${encodeURIComponent(status)}`
+        );
+        if (!response.ok) throw new Error(`Worker error (${response.status})`);
+        const data = await response.json() as any;
+        return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: 'text' as const, text: `Error: ${err instanceof Error ? err.message : String(err)}` }], isError: true };
+      }
+    }
+  },
+  {
+    name: 'session_summary_approve',
+    description: 'Approve a draft continuity summary so it is injected at the next SessionStart. Params: id (required, numeric summary ID from session_summary_list).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'number', description: 'Numeric ID of the draft summary to approve' },
+      },
+      required: ['id'],
+      additionalProperties: false,
+    },
+    handler: async (args: any) => {
+      const id = Number(args?.id);
+      if (!id || !Number.isInteger(id) || id <= 0) throw new Error('Missing or invalid required argument: id (must be a positive integer)');
+      return await callWorkerAPIPost('/api/continuity-summary/approve', { id });
+    }
+  },
 ];
 
 const server = new Server(
